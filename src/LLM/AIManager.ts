@@ -1,6 +1,6 @@
 import { 
-  ChatModels, 
-  EntryItemGeneration,
+ ChatModels, 
+ EntryItemGeneration,
 } from "@/constants";
 import { errorMessage } from "@/utils/errorMessage";
 import { APIUserAbortError, BadRequestError } from "openai/error";
@@ -35,192 +35,211 @@ Best practices for using reference files and chat response
 Chat response is here
 </chat response>
 <flashcards>
-  <flashcard>
-  <question>Question is here</question><answer>Answer is here</answer>
-  </flashcard>
+ <flashcard>
+ <question>Question is here</question><answer>Answer is here</answer>
+ </flashcard>
 </flashcards>
 </RESPONSE FORMAT>
 `;
 
 type Message = {
-  role: 'user' | 'assistant' | 'developer';
-  content: string;
+ role: 'user' | 'assistant' | 'developer';
+ content: string;
 };
 
 
 export default class AIManager {
-  private static instance: AIManager;
-  private client: OpenAI;
-  private messageHistory: Message[];
-  public chatModel: ChatModels;
+ private static instance: AIManager;
+ private client: OpenAI;
+ private messageHistory: Message[];
+ public chatModel: ChatModels;
 
-  constructor(chatModel: ChatModels, apiKey: string) {
-    this.chatModel = chatModel;
-    this.messageHistory = [];
-    this.setNewThread();
-    this.checkApiKey(apiKey)
-      .then((valid) => {
-        if (valid) {
-          this.client = new OpenAI({
-            apiKey,
-            dangerouslyAllowBrowser: true
-          });
-        }
-      });
-  }
+ constructor(chatModel: ChatModels, apiKey: string) {
+ this.chatModel = chatModel;
+ this.messageHistory = [];
+ this.setNewThread();
+ this.checkApiKey(apiKey)
+ .then((valid) => {
+ if (valid) {
+ this.client = new OpenAI({
+ apiKey,
+ baseURL: this.getBaseURL(), // 新增：根据模型选择 baseURL
+ dangerouslyAllowBrowser: true
+ });
+ }
+ });
+ }
 
-  // Gets singleton instance
-  static getInstance(chatModel: ChatModels, apiKey: string): AIManager {
-    if (!AIManager.instance) {
-      AIManager.instance = new AIManager(chatModel, apiKey);
-    }
-    return AIManager.instance;
-  }
+ // Gets singleton instance
+ static getInstance(chatModel: ChatModels, apiKey: string): AIManager {
+ if (!AIManager.instance) {
+ AIManager.instance = new AIManager(chatModel, apiKey);
+ }
+ return AIManager.instance;
+ }
 
-  async checkApiKey(apiKey: string): Promise<boolean> {
-    const tempClient = new OpenAI({
-      apiKey,
-      dangerouslyAllowBrowser: true
-    });
-    const response = await tempClient.chat.completions.create({
-      messages: [{ role: 'user', content: 'this is a test' }],
-      model: this.chatModel,
-    });
-    return !!response.choices[0].message.content;
-  }
+ // 新增方法：根据 chatModel 动态选择 baseURL
+ private getBaseURL(): string {
+ if (this.chatModel.startsWith('qwen-')) {
+ return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+ }
+ return 'https://api.openai.com/v1'; // 默认 OpenAI
+ }
 
-  async setApiKey(apiKey: string): Promise<boolean> {
-    const valid = await this.checkApiKey(apiKey);
-    if (valid) {
-      this.client = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true
-      });
-      return true;
-    }
-    return false;
-  }
+ async checkApiKey(apiKey: string): Promise<boolean> {
+ const tempClient = new OpenAI({
+ apiKey,
+ baseURL: this.getBaseURL(), // 修改：使用动态 baseURL
+ dangerouslyAllowBrowser: true
+ });
+ const response = await tempClient.chat.completions.create({
+ messages: [{ role: 'user', content: 'this is a test' }],
+ model: this.chatModel,
+ });
+ return !!response.choices[0].message.content;
+ }
 
-  // Sets the chat model
-  setModel(newModel: ChatModels): void {
-    this.chatModel = newModel;
-  }
+ async setApiKey(apiKey: string): Promise<boolean> {
+ const valid = await this.checkApiKey(apiKey);
+ if (valid) {
+ this.client = new OpenAI({
+ apiKey,
+ baseURL: this.getBaseURL(), // 修改：使用动态 baseURL
+ dangerouslyAllowBrowser: true
+ });
+ return true;
+ }
+ return false;
+ }
 
-  // Sets a new conversation thread with optional index to slice message history
-  async setNewThread(index?: number): Promise<void> {
-    if (index) {
-      const historyToUse = index !== undefined ? this.messageHistory.slice(0, index * 2 + 1) : [];
-      this.messageHistory = [
-        ...historyToUse
-      ];
-    } else {
-      this.messageHistory = [{ role: 'developer', content: PROMPT }];
-    }
-  }
+ // Sets the chat model
+ setModel(newModel: ChatModels): void {
+ this.chatModel = newModel;
+ // 可选：如果切换模型，重新初始化 client 以应用新 baseURL
+ if (this.client) {
+ this.client = new OpenAI({
+ apiKey: this.client.apiKey, // 假设 apiKey 已存，可从存储中取
+ baseURL: this.getBaseURL(),
+ dangerouslyAllowBrowser: true
+ });
+ }
+ }
 
-  private parseFlashcards(xmlString: string): { chatResponse: string; entries: EntryItemGeneration[] } {
-    let chatResponse = '';
-    const entries: EntryItemGeneration[] = [];
+ // Sets a new conversation thread with optional index to slice message history
+ async setNewThread(index?: number): Promise<void> {
+ if (index) {
+ const historyToUse = index !== undefined ? this.messageHistory.slice(0, index * 2 + 1) : [];
+ this.messageHistory = [
+ ...historyToUse
+ ];
+ } else {
+ this.messageHistory = [{ role: 'developer', content: PROMPT }];
+ }
+ }
 
-    // Extract chat response - handle both complete and partial tags
-    const chatMatch = xmlString.match(/<chat response>([^]*?)(?:<\/chat response>|$)/);
-    if (chatMatch) {
-      chatResponse = chatMatch[1].trim();
-    }
+ private parseFlashcards(xmlString: string): { chatResponse: string; entries: EntryItemGeneration[] } {
+ let chatResponse = '';
+ const entries: EntryItemGeneration[] = [];
 
-    // Extract flashcards - only complete flashcard tags
-    const flashcardMatches = xmlString.matchAll(/<flashcard>[^]*?<question>([^]*?)<\/question>[^]*?<answer>([^]*?)<\/answer>[^]*?<\/flashcard>/g);
-    for (const match of flashcardMatches) {
-      entries.push({
-        front: match[1].trim(),
-        back: match[2].trim()
-      });
-    }
+ // Extract chat response - handle both complete and partial tags
+ const chatMatch = xmlString.match(/<chat response>([^]*?)(?:<\/chat response>|$)/);
+ if (chatMatch) {
+ chatResponse = chatMatch[1].trim();
+ }
 
-    return { chatResponse, entries };
-  }
+ // Extract flashcards - only complete flashcard tags
+ const flashcardMatches = xmlString.matchAll(/<flashcard>[^]*?<question>([^]*?)<\/question>[^]*?<answer>([^]*?)<\/answer>[^]*?<\/flashcard>/g);
+ for (const match of flashcardMatches) {
+ entries.push({
+ front: match[1].trim(),
+ back: match[2].trim()
+ });
+ }
 
-  async streamAIResponse(
-    newMessageModded: string,
-    abortController: AbortController,
-    setAIString: (response: string) => void,
-    setAIEntries: (response: EntryItemGeneration[]) => void
-  ): Promise<{ str: string; entries: EntryItemGeneration[] }> {
-    
-    try {
-      // Push user message into messageHistory
-      this.messageHistory.push({ role: 'user' as const, content: newMessageModded });
-      const stream = await this.client.chat.completions.create({
-        model: this.chatModel,
-        messages: this.messageHistory as ChatCompletionMessageParam[],
-        stream: true,
-      });
+ return { chatResponse, entries };
+ }
 
-      let fullResponse = '';
-      let lastChatResponse = '';
-      let lastEntries: EntryItemGeneration[] = [];
+ async streamAIResponse(
+ newMessageModded: string,
+ abortController: AbortController,
+ setAIString: (response: string) => void,
+ setAIEntries: (response: EntryItemGeneration[]) => void
+ ): Promise<{ str: string; entries: EntryItemGeneration[] }> {
+ 
+ try {
+ // Push user message into messageHistory
+ this.messageHistory.push({ role: 'user' as const, content: newMessageModded });
+ const stream = await this.client.chat.completions.create({
+ model: this.chatModel,
+ messages: this.messageHistory as ChatCompletionMessageParam[],
+ stream: true,
+ });
 
-      for await (const chunk of stream) {
-        if (abortController.signal.aborted) {
-          break;
-        }
+ let fullResponse = '';
+ let lastChatResponse = '';
+ let lastEntries: EntryItemGeneration[] = [];
 
-        const content = chunk.choices[0]?.delta?.content || '';
-        fullResponse += content;
-        
-        const { chatResponse, entries } = this.parseFlashcards(fullResponse);
-        
-        // Only update if we have new content
-        if (chatResponse && chatResponse !== lastChatResponse) {
-          setAIString(chatResponse);
-          lastChatResponse = chatResponse;
-        }
-        
-        if (entries.length > lastEntries.length) {
-          setAIEntries(entries);
-          lastEntries = entries;
-        }
-      }
-      
-      const finalParse = this.parseFlashcards(fullResponse);
-      
-      // Push assistant message response into messageHistory
-      this.messageHistory.push({
-        role: 'assistant', 
-        content: fullResponse
-      });
+ for await (const chunk of stream) {
+ if (abortController.signal.aborted) {
+ break;
+ }
 
-      return { str: finalParse.chatResponse, entries: finalParse.entries };
+ const content = chunk.choices[0]?.delta?.content || '';
+ fullResponse += content;
+ 
+ const { chatResponse, entries } = this.parseFlashcards(fullResponse);
+ 
+ // Only update if we have new content
+ if (chatResponse && chatResponse !== lastChatResponse) {
+ setAIString(chatResponse);
+ lastChatResponse = chatResponse;
+ }
+ 
+ if (entries.length > lastEntries.length) {
+ setAIEntries(entries);
+ lastEntries = entries;
+ }
+ }
+ 
+ const finalParse = this.parseFlashcards(fullResponse);
+ 
+ // Push assistant message response into messageHistory
+ this.messageHistory.push({
+ role: 'assistant', 
+ content: fullResponse
+ });
 
-    } catch (e) {
-      console.error('Error in AI stream:', e);
-      if (!(e instanceof APIUserAbortError)) {
-        if (e instanceof BadRequestError) {
-          const message = e.message;
-          // Check for token limit error
-          const tokenMatch = message.match(/maximum context length is (\d+).*resulted in (\d+) tokens/);
-          if (tokenMatch) {
-            const [, maxTokens, actualTokens] = tokenMatch;
-            setAIString(`Oops! Your message is ${actualTokens} tokens. Please keep it under ${maxTokens} tokens (about ${Math.round(Number(maxTokens) * 0.75)} words).`);
-            return { str: '', entries: [] };
-          }
-          
-          // Check for string length error
-          const lengthMatch = message.match(/maximum length (\d+).*length (\d+)/);
-          if (lengthMatch) {
-            const [, maxLength, actualLength] = lengthMatch;
-            // Rough estimation: 1 token ≈ 4 characters
-            const estimatedTokens = Math.ceil(Number(actualLength) / 4);
-            const maxTokens = Math.ceil(Number(maxLength) / 4);
-            setAIString(`Oops! Your message is too long (approximately ${estimatedTokens} tokens). Please keep it under ${maxTokens} tokens (about ${Math.round(maxTokens * 0.75)} words).`);
-            return { str: '', entries: [] };
-          }
-                  
-        } else {
-          errorMessage(`Streaming AI response ${e}`);
-        }
-      }
-      return { str: '', entries: [] };
-    }
-  }
+ return { str: finalParse.chatResponse, entries: finalParse.entries };
+
+ } catch (e) {
+ console.error('Error in AI stream:', e);
+ if (!(e instanceof APIUserAbortError)) {
+ if (e instanceof BadRequestError) {
+ const message = e.message;
+ // Check for token limit error
+ const tokenMatch = message.match(/maximum context length is (\d+).*resulted in (\d+) tokens/);
+ if (tokenMatch) {
+ const [, maxTokens, actualTokens] = tokenMatch;
+ setAIString(`Oops! Your message is ${actualTokens} tokens. Please keep it under ${maxTokens} tokens (about ${Math.round(Number(maxTokens) * 0.75)} words).`);
+ return { str: '', entries: [] };
+ }
+ 
+ // Check for string length error
+ const lengthMatch = message.match(/maximum length (\d+).*length (\d+)/);
+ if (lengthMatch) {
+ const [, maxLength, actualLength] = lengthMatch;
+ // Rough estimation: 1 token ≈ 4 characters
+ const estimatedTokens = Math.ceil(Number(actualLength) / 4);
+ const maxTokens = Math.ceil(Number(maxLength) / 4);
+ setAIString(`Oops! Your message is too long (approximately ${estimatedTokens} tokens). Please keep it under ${maxTokens} tokens (about ${Math.round(maxTokens * 0.75)} words).`);
+ return { str: '', entries: [] };
+ }
+ 
+ } else {
+ errorMessage(`Streaming AI response ${e}`);
+ }
+ }
+ return { str: '', entries: [] };
+ }
+ }
 }
