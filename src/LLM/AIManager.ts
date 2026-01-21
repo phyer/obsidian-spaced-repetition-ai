@@ -63,6 +63,7 @@ export default class AIManager {
         if (valid) {
           this.client = new OpenAI({
             apiKey,
+            baseURL: this.getBaseURL(),  // 新增：根据模型选择 baseURL
             dangerouslyAllowBrowser: true
           });
         }
@@ -77,9 +78,18 @@ export default class AIManager {
     return AIManager.instance;
   }
 
+  // 新增方法：根据 chatModel 动态选择 baseURL
+  private getBaseURL(): string {
+    if (this.chatModel.startsWith('qwen-')) {
+      return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    }
+    return 'https://api.openai.com/v1';  // 默认 OpenAI
+  }
+
   async checkApiKey(apiKey: string): Promise<boolean> {
     const tempClient = new OpenAI({
       apiKey,
+      baseURL: this.getBaseURL(),  // 修改：使用动态 baseURL
       dangerouslyAllowBrowser: true
     });
     const response = await tempClient.chat.completions.create({
@@ -94,6 +104,7 @@ export default class AIManager {
     if (valid) {
       this.client = new OpenAI({
         apiKey,
+        baseURL: this.getBaseURL(),  // 修改：使用动态 baseURL
         dangerouslyAllowBrowser: true
       });
       return true;
@@ -104,6 +115,14 @@ export default class AIManager {
   // Sets the chat model
   setModel(newModel: ChatModels): void {
     this.chatModel = newModel;
+    // 可选：如果切换模型，重新初始化 client 以应用新 baseURL
+    if (this.client) {
+      this.client = new OpenAI({
+        apiKey: this.client.apiKey,  // 假设 apiKey 已存，可从存储中取
+        baseURL: this.getBaseURL(),
+        dangerouslyAllowBrowser: true
+      });
+    }
   }
 
   // Sets a new conversation thread with optional index to slice message history
