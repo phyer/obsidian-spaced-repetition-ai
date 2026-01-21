@@ -88,6 +88,8 @@ export enum ChatModels {
   GPT_4o_2024_08_06 = "gpt-4o-2024-08-06",
   GPT_4o_2024_05_13 = "gpt-4o-2024-05-13",
   GPT_4o_MINI_2024_07_18 = "gpt-4o-mini-2024-07-18",
+  QWEN_MAX_LATEST = "qwen-max-latest",
+  QWEN_PLUS_LATEST = "qwen-plus-latest",
   // O1 = "o1",
   // O1_MINI = "o1-mini",
   // O1_PREVIEW = "o1-preview",
@@ -108,6 +110,8 @@ export enum ChatModelDisplayNames {
   GPT_4o_2024_08_06 = "GPT-4o 2024-08-06",
   GPT_4o_2024_05_13 = "GPT-4o 2024-05-13",
   GPT_4o_MINI_2024_07_18 = "GPT-4o mini 2024-07-18",
+  QWEN_MAX_LATEST = "Qwen Max Latest",
+  QWEN_PLUS_LATEST = "Qwen Plus Latest",
   // O1 = "o1",
   // O1_MINI = "o1-mini",
   // O1_PREVIEW = "o1-preview",
@@ -137,6 +141,16 @@ export const OPENAI_MODELS = [
   // ChatModelDisplayNames.O1_PRO
 ];
 
+export const QWEN_MODELS = [
+  ChatModelDisplayNames.QWEN_MAX_LATEST,
+  ChatModelDisplayNames.QWEN_PLUS_LATEST,
+];
+
+export const ALL_MODELS = [
+  ...OPENAI_MODELS,
+  ...QWEN_MODELS,
+];
+
 export const DISPLAY_NAME_TO_MODEL: Record<ChatModelDisplayNames, ChatModels> = {
   [ChatModelDisplayNames.GPT_35_TURBO]: ChatModels.GPT_35_TURBO,
   [ChatModelDisplayNames.GPT_4]: ChatModels.GPT_4,
@@ -148,6 +162,8 @@ export const DISPLAY_NAME_TO_MODEL: Record<ChatModelDisplayNames, ChatModels> = 
   [ChatModelDisplayNames.GPT_4o_2024_08_06]: ChatModels.GPT_4o_2024_08_06,
   [ChatModelDisplayNames.GPT_4o_2024_05_13]: ChatModels.GPT_4o_2024_05_13,
   [ChatModelDisplayNames.GPT_4o_MINI_2024_07_18]: ChatModels.GPT_4o_MINI_2024_07_18,
+  [ChatModelDisplayNames.QWEN_MAX_LATEST]: ChatModels.QWEN_MAX_LATEST,
+  [ChatModelDisplayNames.QWEN_PLUS_LATEST]: ChatModels.QWEN_PLUS_LATEST,
   // [ChatModelDisplayNames.O1]: ChatModels.O1,
   // [ChatModelDisplayNames.O1_MINI]: ChatModels.O1_MINI,
   // [ChatModelDisplayNames.O1_PREVIEW]: ChatModels.O1_PREVIEW,
