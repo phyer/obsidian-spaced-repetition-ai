@@ -178,7 +178,7 @@ export const MODEL_TO_DISPLAY_NAME: Record<ChatModels, ChatModelDisplayNames> = 
 ) as Record<ChatModels, ChatModelDisplayNames>;
 
 export const DEFAULT_SETTINGS: SRSettings = {
-  defaultModel: ChatModels.GPT_4o,
+  defaultModel: ChatModels.QWEN_MAX_LATEST,
   defaultModelDisplayName: ChatModelDisplayNames.GPT_4o,
   openAIApiKey: "",
   inlineSeparator: "::",

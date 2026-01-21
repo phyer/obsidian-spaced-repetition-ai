@@ -83,7 +83,7 @@ export default class AIManager {
     if (this.chatModel.startsWith('qwen-')) {
       return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
     }
-    return 'https://api.openai.com/v1';  // 默认 OpenAI
+    return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
   }
 
   async checkApiKey(apiKey: string): Promise<boolean> {
