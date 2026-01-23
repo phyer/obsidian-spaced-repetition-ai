@@ -83,32 +83,63 @@ export default class AIManager {
     if (this.chatModel.startsWith('qwen-')) {
       return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
     }
-    return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    return 'https://api.openai.com/v1';  // 默认 OpenAI
   }
 
   async checkApiKey(apiKey: string): Promise<boolean> {
+    console.log('Checking API key for model:', this.chatModel);
+    console.log('Base URL being used:', this.getBaseURL());
+    
     const tempClient = new OpenAI({
       apiKey,
       baseURL: this.getBaseURL(),  // 修改：使用动态 baseURL
       dangerouslyAllowBrowser: true
     });
-    const response = await tempClient.chat.completions.create({
-      messages: [{ role: 'user', content: 'this is a test' }],
-      model: this.chatModel,
-    });
-    return !!response.choices[0].message.content;
+    
+    try {
+      const response = await tempClient.chat.completions.create({
+        messages: [{ role: 'user', content: 'this is a test' }],
+        model: this.chatModel,
+      });
+      
+      console.log('API response received:', response);
+      console.log('Response choices:', response.choices);
+      console.log('Has content:', !!response.choices[0]?.message?.content);
+      
+      return !!response.choices[0]?.message?.content;
+    } catch (error) {
+      console.error('API validation error details:', error);
+      console.error('Error type:', typeof error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      // 如果是错误响应，尝试获取更多信息
+      if ('status' in error) {
+        console.error('HTTP Status:', (error as any).status);
+      }
+      if ('response' in error) {
+        console.error('Response body:', (error as any).response?.body);
+      }
+      return false;
+    }
   }
 
   async setApiKey(apiKey: string): Promise<boolean> {
+    console.log('Setting API key, validating...');
     const valid = await this.checkApiKey(apiKey);
+    console.log('API key validation result:', valid);
+    
     if (valid) {
       this.client = new OpenAI({
         apiKey,
         baseURL: this.getBaseURL(),  // 修改：使用动态 baseURL
         dangerouslyAllowBrowser: true
       });
+      console.log('API client created successfully');
       return true;
     }
+    console.log('API key validation failed');
     return false;
   }
 
